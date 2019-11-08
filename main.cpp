@@ -3,76 +3,106 @@
 #include <iostream>
 #include "model.h"
 #include <SDL_ttf.h>
+#include <SDL_image.h>
 #include <functional>
 #include "renderer.h"
 
-std::unique_ptr<TTF_Font, std::function<void (TTF_Font*)>> font;
-std::unique_ptr<renderer::Renderer> software_renderer;
+const uint16_t default_width = 800;
+const uint16_t default_height = 600;
 
-uint16_t width = 800;
-uint16_t height = 600;
-
-uint32_t current_tick = 0;
-uint32_t delta_ticks = 0;
-uint16_t fps = 0;
-
-renderer::Color clear_color {255, 0, 0, 255};
-
+renderer::Color clear_color {255, 255, 255, 255};
 SDL_Color fps_text_color = { 255, 0, 0, 255 };
 SDL_Color bg_text_color = { 0, 255, 0, 255 };
 
-void render_text(SDL_Surface* surface, const std::string& text) {
-    SDL_Surface* text_surface = TTF_RenderText_Shaded(font.get(), text.c_str(), fps_text_color, bg_text_color);
+void render_text(SDL_Surface* surface, TTF_Font* font, const std::string& text) {
+    auto surface_deleter = [](SDL_Surface* surface) {
+        if (surface != nullptr) {
+            SDL_FreeSurface(surface);
+        }
+    };
+    auto text_surface = std::unique_ptr<SDL_Surface, std::function<void (SDL_Surface*)>>(
+            TTF_RenderText_Shaded(font, text.c_str(), fps_text_color, bg_text_color), surface_deleter);
     if (text_surface != nullptr) {
-        SDL_UpperBlit(text_surface, &text_surface->clip_rect, surface, nullptr);
-        SDL_FreeSurface(text_surface);
+        SDL_UpperBlit(text_surface.get(), &text_surface->clip_rect, surface, nullptr);
     } else {
-        std::cout << "Failed to create a text surface: " << TTF_GetError() << std::endl;
+        std::cout << "Failed to create text surface: " << TTF_GetError() << std::endl;
     }
 }
 
-bool init_font() {
-    if (TTF_Init() == -1) {
+bool init_sdl_ttf() {
+    if (TTF_Init() != 0) {
         std::cerr << "SDL_ttf failed to initialize: " << TTF_GetError() << std::endl;
         return false;
     }
+    return true;
+}
 
-    auto deleter = [](TTF_Font* f) { TTF_CloseFont(f); };
-    font = std::unique_ptr<TTF_Font, std::function<void (TTF_Font*)>>(TTF_OpenFont("data/NotoSans.ttf", 24), deleter);
-    if (font == nullptr) {
-        std::cerr << "Failed to load the font: " << TTF_GetError() << std::endl;
+bool init_sdl_image() {
+    if (IMG_Init(IMG_INIT_JPG | IMG_INIT_PNG | IMG_INIT_WEBP) == 0) {
+        std::cerr << "SDL_image failed to initialize: " << IMG_GetError() << std::endl;
         return false;
     }
-
     return true;
 }
 
 int main() {
-    if (!init_font()) {
-        return 0;
+    uint64_t current_tick = 0;
+    uint64_t delta_ticks = 0;
+    uint16_t fps = 0;
+
+    if (!init_sdl_ttf()) {
+        return -1;
     }
 
-    SDL_Init(SDL_INIT_VIDEO);
+    auto font_deleter = [](TTF_Font* font) {
+        if (font != nullptr) {
+            TTF_CloseFont(font);
+        }
+    };
+    std::unique_ptr<TTF_Font, std::function<void (TTF_Font*)>> font =
+            std::unique_ptr<TTF_Font, std::function<void (TTF_Font*)>>(
+                    TTF_OpenFont("data/NotoSans.ttf", 24), font_deleter);
+    if (font == nullptr) {
+        std::cerr << "Failed to load the font: " << TTF_GetError() << std::endl;
+        return -1;
+    }
 
-    SDL_Window *window = SDL_CreateWindow(
+    if (!init_sdl_image()) {
+        return -1;
+    }
+
+    if (SDL_Init(SDL_INIT_VIDEO) != 0) {
+        std::cerr << "SDL failed to initialize: " << SDL_GetError() << std::endl;
+        return -1;
+    }
+
+    auto window_deleter = [](SDL_Window* window) {
+        if (window != nullptr) {
+            SDL_DestroyWindow(window);
+        }
+    };
+    auto window = std::unique_ptr<SDL_Window, std::function<void (SDL_Window*)>>(
+            SDL_CreateWindow(
             "SoftwareRenderer",
             SDL_WINDOWPOS_CENTERED,
             SDL_WINDOWPOS_CENTERED,
-            width,
-            height,
-            0
-    );
+            default_width,
+            default_height,
+            SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE
+    ), window_deleter);
+
     if (window == nullptr) {
         std::cerr << "Could not load an SDL window." << std::endl;
-        return 0;
+        return -1;
     }
 
-    SDL_Surface* surface = SDL_GetWindowSurface(window);
+    SDL_Surface* surface = SDL_GetWindowSurface(window.get());
     auto* pixels = static_cast<uint32_t*>(surface->pixels);
 
-    software_renderer = std::make_unique<renderer::Renderer>(clear_color, width, height);
+    std::unique_ptr<renderer::Renderer> renderer =
+            std::make_unique<renderer::Renderer>(window.get(), default_width, default_height, clear_color);
 
-    renderer::Model model = renderer::Model("data/Pallas_Cat.obj");
+    renderer::Model model = renderer::Model("data/Pallas_Cat");
 
     current_tick = SDL_GetTicks();
 
@@ -81,6 +111,17 @@ int main() {
     while (!quit) {
         while (SDL_PollEvent(&event)) {
             switch (event.type) {
+                case SDL_WINDOWEVENT:
+                    switch(event.window.event) {
+                        case SDL_WINDOWEVENT_RESIZED:
+                            surface = SDL_GetWindowSurface(window.get());
+                            pixels = static_cast<uint32_t*>(surface->pixels);
+                            renderer->resize_window(event.window.data1, event.window.data2);
+                            break;
+                        default:
+                            break;
+                    }
+                    break;
                 case SDL_QUIT:
                     quit = true;
                     break;
@@ -89,10 +130,10 @@ int main() {
             }
         }
 
-        software_renderer->clear_buffer(pixels);
+        renderer->clear_buffer(pixels);
 
         // Draw model
-        software_renderer->draw_model(model, pixels);
+        renderer->draw_model(model, pixels);
 
         // FPS
         delta_ticks = SDL_GetTicks() - current_tick;
@@ -101,13 +142,17 @@ int main() {
             fps = 1000 / delta_ticks;
         }
 
-        render_text(surface, std::to_string(fps));
+        render_text(surface, font.get(), std::to_string(fps));
 
-        SDL_UpdateWindowSurface(window);
+        SDL_UpdateWindowSurface(window.get());
     }
 
-    SDL_DestroyWindow(window);
     SDL_Quit();
+
+    IMG_Quit();
+
+    font.reset(nullptr);
+    TTF_Quit();
 
     return 0;
 }

@@ -10,7 +10,8 @@ struct Matrix {
     float data[N * M];
 };
 
-typedef Matrix<1, 4> Vector;
+template <size_t N>
+using Vector = Matrix<1, N>;
 
 static Matrix<4, 4> create_translation_matrix(float x, float y, float z) {
     Matrix<4, 4> mtx;
