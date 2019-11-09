@@ -1,19 +1,15 @@
+#include "model.h"
+#include "vertex.h"
+
 #include <iostream>
 #include <SDL_image.h>
-#include "model.h"
-#include "renderer.h"
-
-#define TINYOBJLOADER_IMPLEMENTATION
-#include "tiny_obj_loader.h"
+#include <tiny_obj_loader_impl.h>
 
 namespace renderer {
 
-Model::Model(const std::string &path) {
-    std::string file_texture = path + ".jpg";
-    auto deleter = [](SDL_Surface* surface) { SDL_FreeSurface(surface); };
-    texture = std::unique_ptr<SDL_Surface, std::function<void (SDL_Surface*)>>(IMG_Load(file_texture.c_str()), deleter);
-    if (texture == nullptr) {
-        std::cout << "Failed to load a texture: " << IMG_GetError() << "\n";
+Model::Model(const std::string &path) : texture(init_texture(path)) {
+    if (texture != nullptr) {
+        std::cerr << "Failed to load a texture: " << IMG_GetError() << "\n";
     }
 
     tinyobj::attrib_t attrib;
@@ -33,7 +29,7 @@ Model::Model(const std::string &path) {
         std::cerr << err << std::endl;
     }
 
-    for (tinyobj::shape_t shape : shapes) {
+    for (const tinyobj::shape_t& shape : shapes) {
         size_t index_offset = 0;
 
         vertex_buffer.resize(shape.mesh.num_face_vertices.size() * 3);
@@ -50,11 +46,17 @@ Model::Model(const std::string &path) {
                 tinyobj::real_t u = attrib.texcoords[2 * idx.texcoord_index + 0];
                 tinyobj::real_t v = 1.f - attrib.texcoords[2 * idx.texcoord_index + 1];
 
-                vertex_buffer[face * 3 + vertex] = {x, y, z, 1.f, u, v};
+                vertex_buffer[face * 3 + vertex] = renderer::Vertex {x, y, z, 1.f, u, v};
             }
             index_offset += 3;
         }
     }
+}
+
+std::unique_ptr<SDL_Surface, void (*) (SDL_Surface*)> Model::init_texture(const std::string &path) const {
+    std::string file_texture = path + ".jpg";
+    auto deleter = [](SDL_Surface* surface) { SDL_FreeSurface(surface); };
+    return std::unique_ptr<SDL_Surface, void (*) (SDL_Surface*)>(IMG_Load(file_texture.c_str()), deleter);
 }
 
 const std::vector<Vertex>& Model::get_vertex_buffer() const {

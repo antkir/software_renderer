@@ -10,7 +10,9 @@ find_package(SDL2_image REQUIRED)
 find_package(SDL2_ttf REQUIRED)
 include_directories(${SDL2_INCLUDE_DIRS} ${SDL2_TTF_INCLUDE_DIR} ${SDL2_IMAGE_INCLUDE_DIR})
 
-add_executable(software_renderer matrix.h model.h model.cpp renderer.h renderer.cpp main.cpp)
+file(GLOB_RECURSE SOFTWARE_RENDERER_SRC "${CMAKE_SOURCE_DIR}/src/*.h" "${CMAKE_SOURCE_DIR}/src/*.cpp")
+add_executable(software_renderer ${SOFTWARE_RENDERER_SRC})
+target_include_directories(software_renderer PRIVATE "${CMAKE_SOURCE_DIR}/3rdparty")
 target_link_libraries(software_renderer ${SDL2_LIBRARIES} ${SDL2_TTF_LIBRARIES} ${SDL2_IMAGE_LIBRARIES})
 
 add_custom_command(TARGET software_renderer POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_directory
