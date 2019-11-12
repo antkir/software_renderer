@@ -2,4 +2,4 @@
 
 Just a basic software renderer. Using SDL2 for creating windows.
 
-![Software Renderer Demo](demo/demo.gif)
+[Demo video](https://giant.gfycat.com/SpitefulTinyFoal.webm)
