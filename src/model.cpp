@@ -2,14 +2,13 @@
 #include "vertex.h"
 
 #include <iostream>
-#include <SDL_image.h>
 #include <tiny_obj_loader_impl.h>
 
 namespace renderer {
 
 Model::Model(const std::string &path) : texture(init_texture(path)) {
-    if (texture != nullptr) {
-        std::cerr << "Failed to load a texture: " << IMG_GetError() << "\n";
+    if (texture == nullptr) {
+        throw std::runtime_error("Failed to load a texture: " + std::string(SDL_GetError()));
     }
 
     tinyobj::attrib_t attrib;
@@ -20,13 +19,12 @@ Model::Model(const std::string &path) : texture(init_texture(path)) {
     std::string err;
 
     std::string file_obj = path + ".obj";
-    tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, file_obj.c_str());
-
+    bool has_loaded = tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, file_obj.c_str());
     if (!warn.empty()) {
         std::cout << warn << std::endl;
     }
-    if (!err.empty()) {
-        std::cerr << err << std::endl;
+    if (!has_loaded) {
+        throw std::runtime_error("Failed to load a model: " + err);
     }
 
     for (const tinyobj::shape_t& shape : shapes) {
@@ -54,9 +52,9 @@ Model::Model(const std::string &path) : texture(init_texture(path)) {
 }
 
 std::unique_ptr<SDL_Surface, void (*) (SDL_Surface*)> Model::init_texture(const std::string &path) const {
-    std::string file_texture = path + ".jpg";
+    std::string file_texture = path + ".bmp";
     auto deleter = [](SDL_Surface* surface) { SDL_FreeSurface(surface); };
-    return std::unique_ptr<SDL_Surface, void (*) (SDL_Surface*)>(IMG_Load(file_texture.c_str()), deleter);
+    return std::unique_ptr<SDL_Surface, void (*) (SDL_Surface*)>(SDL_LoadBMP(file_texture.c_str()), deleter);
 }
 
 const std::vector<Vertex>& Model::get_vertex_buffer() const {

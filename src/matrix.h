@@ -19,7 +19,7 @@ Matrix<4, 4> create_rotation_matrix(float x, float y, float z, float angle);
 Matrix<4, 4> create_translation_matrix(float x, float y, float z);
 
 template <size_t N1, size_t M1, size_t N2, size_t M2>
-static Matrix<N2, M1> mul(const Matrix<N1, M1>& l, const Matrix<N2, M2>& r) {
+Matrix<N2, M1> mul(const Matrix<N1, M1>& l, const Matrix<N2, M2>& r) {
     static_assert(M2 == N1);
     Matrix<N2, M1> mtx { 0 };
 

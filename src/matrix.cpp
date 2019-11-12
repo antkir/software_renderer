@@ -1,5 +1,6 @@
-#include <cassert>
 #include "matrix.h"
+
+#include <cassert>
 
 namespace math {
 Matrix<4, 4> create_translation_matrix(float x, float y, float z) {

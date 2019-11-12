@@ -6,7 +6,7 @@
 #include <memory>
 #include <string>
 #include <vector>
-#include <SDL_image.h>
+#include <SDL2/SDL_surface.h>
 
 namespace renderer {
 class Model {
