@@ -3,6 +3,8 @@ project(software_renderer)
 
 set(CMAKE_CXX_STANDARD 17)
 
+set_property(DIRECTORY PROPERTY VS_STARTUP_PROJECT software_renderer)
+
 function(deploy_shared_library NAME OUTPUT_DIRECTORY WINDOWS_PATH DARWIN_PATH LINUX_PATH)
     set(input "")
     if(WIN32)
@@ -34,7 +36,8 @@ endfunction()
 file(GLOB_RECURSE SOFTWARE_RENDERER_SRC "${CMAKE_SOURCE_DIR}/src/*.h" "${CMAKE_SOURCE_DIR}/src/*.cpp")
 add_executable(software_renderer ${SOFTWARE_RENDERER_SRC})
 
-target_include_directories(software_renderer PRIVATE "${CMAKE_SOURCE_DIR}/3rdparty/tinyobj/")
+target_include_directories(software_renderer PRIVATE "${CMAKE_SOURCE_DIR}/3rdparty/ghc-filesystem/include/")
+target_include_directories(software_renderer PRIVATE "${CMAKE_SOURCE_DIR}/3rdparty/tinyobj/include/")
 target_include_directories(software_renderer PRIVATE "${CMAKE_SOURCE_DIR}/3rdparty/SDL2/${CMAKE_HOST_SYSTEM_NAME}/include/")
 
 if(WIN32)
@@ -50,7 +53,7 @@ add_custom_command(TARGET software_renderer POST_BUILD COMMAND ${CMAKE_COMMAND} 
         ${CMAKE_SOURCE_DIR}/data/ $<TARGET_FILE_DIR:software_renderer>/data/)
 
 deploy_shared_library("SDL2"
-        "${CMAKE_BINARY_DIR}"
+        "${CMAKE_BINARY_DIR}/${CMAKE_CFG_INTDIR}"
         "${CMAKE_SOURCE_DIR}/3rdparty/SDL2/Windows/bin/SDL2.dll"
         "${CMAKE_SOURCE_DIR}/3rdparty/SDL2/Darwin/bin/libSDL2.dylib"
         "${CMAKE_SOURCE_DIR}/3rdparty/SDL2/Linux/bin/libSDL2.so"
